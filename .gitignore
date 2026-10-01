@@ -1,0 +1,23 @@
+# Binaries
+bin/
+proxy
+
+# TLS certificates (generated)
+certs/*.crt
+certs/*.key
+certs/*.csr
+certs/*.srl
+certs/*.cnf
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/

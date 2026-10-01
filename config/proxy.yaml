@@ -1,0 +1,30 @@
+listen:
+  http_addr: ":8080"
+  https_addr: ":8443"
+
+tls:
+  enabled: true
+  cert_file: "certs/server.crt"
+  key_file: "certs/server.key"
+
+backends:
+  - url: "http://localhost:9001"
+  - url: "http://localhost:9002"
+  - url: "http://localhost:9003"
+
+balancer:
+  strategy: "round-robin" # "round-robin" | "least-connections"
+
+health_check:
+  enabled: true
+  path: "/healthz"
+  interval: "5s"
+  timeout: "2s"
+  unhealthy_threshold: 3
+  healthy_threshold: 2
+
+timeouts:
+  read: "5s"
+  write: "10s"
+  idle: "120s"
+  shutdown_grace: "30s"

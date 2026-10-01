@@ -1,6 +1,6 @@
 # Binaries
 bin/
-proxy
+/proxy
 
 # TLS certificates (generated)
 certs/*.crt

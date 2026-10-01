@@ -1,0 +1,28 @@
+listen:
+  http_addr: ":8080"
+  https_addr: ":8443"
+
+tls:
+  enabled: false
+
+backends:
+  - url: "http://backend-1:9001"
+  - url: "http://backend-2:9001"
+  - url: "http://backend-3:9001"
+
+balancer:
+  strategy: "round-robin"
+
+health_check:
+  enabled: true
+  path: "/healthz"
+  interval: "5s"
+  timeout: "2s"
+  unhealthy_threshold: 3
+  healthy_threshold: 2
+
+timeouts:
+  read: "5s"
+  write: "10s"
+  idle: "120s"
+  shutdown_grace: "30s"

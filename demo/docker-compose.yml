@@ -1,0 +1,84 @@
+version: "3.8"
+
+services:
+  # --- Reverse Proxy ---
+  proxy:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"    # HTTP
+      - "8443:8443"    # HTTPS
+    volumes:
+      - ./proxy.docker.yaml:/etc/proxy/proxy.yaml:ro
+    depends_on:
+      backend-1:
+        condition: service_healthy
+      backend-2:
+        condition: service_healthy
+      backend-3:
+        condition: service_healthy
+    networks:
+      - proxynet
+    restart: unless-stopped
+
+  # --- Backend Servers ---
+  backend-1:
+    build:
+      context: ./backend
+    environment:
+      - BACKEND_NAME=backend-1
+      - PORT=9001
+      - LATENCY_MS=10
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9001/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+    networks:
+      - proxynet
+
+  backend-2:
+    build:
+      context: ./backend
+    environment:
+      - BACKEND_NAME=backend-2
+      - PORT=9001
+      - LATENCY_MS=20
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9001/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+    networks:
+      - proxynet
+
+  backend-3:
+    build:
+      context: ./backend
+    environment:
+      - BACKEND_NAME=backend-3
+      - PORT=9001
+      - LATENCY_MS=30
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9001/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+    networks:
+      - proxynet
+
+  # --- Prometheus ---
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - proxynet
+    restart: unless-stopped
+
+networks:
+  proxynet:
+    driver: bridge

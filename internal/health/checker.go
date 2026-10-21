@@ -69,13 +69,13 @@ func (c *Checker) Run(ctx context.Context) {
 			c.logger.Info("health checker stopped")
 			return
 		case <-ticker.C:
-			c.checkAll()
+			c.CheckAll()
 		}
 	}
 }
 
-// checkAll probes all backends.
-func (c *Checker) checkAll() {
+// CheckAll probes all backends and updates their health status.
+func (c *Checker) CheckAll() {
 	for _, b := range c.pool.All() {
 		alive := c.probe(b)
 

@@ -12,6 +12,7 @@ var ErrNoBackends = errors.New("no healthy backends available")
 // Balancer selects a backend from the pool for each request.
 type Balancer interface {
 	Next(pool *backend.Pool) (*backend.Backend, error)
+	Name() string
 }
 
 // New creates a Balancer for the given strategy name.

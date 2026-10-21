@@ -1,66 +1,96 @@
-# 🔀 Go Reverse Proxy & Load Balancer
+# 🔀 Go Reverse Proxy, Load Balancer & "Proxy Panic" 🎮
 
-A production-grade HTTP reverse proxy with load balancing, active health checks, TLS termination, and Prometheus observability — built in Go with minimal dependencies.
+A production-grade HTTP reverse proxy and load balancer in Go featuring **Proxy Panic** — an interactive in-browser networking game, visual request topology simulator, and observability dashboard.
 
-## Features
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://golang.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen.svg)]()
 
-- **Load Balancing** — Round-robin and least-connections strategies via a pluggable interface
-- **Active Health Checks** — Periodic probing with configurable thresholds; unhealthy backends are ejected and automatically re-added on recovery
-- **TLS Termination** — HTTPS frontend with configurable TLS 1.2+ and cipher preferences
-- **Graceful Shutdown** — Drains in-flight requests on SIGINT/SIGTERM with configurable grace period
-- **Prometheus Metrics** — Request rates, p50/p99 latency histograms, backend error counters, active connection gauges, and health status
-- **Docker Compose Demo** — One-command stack with 3 backends, the proxy, and Prometheus
-- **Load Testing** — k6 scripts with ramp-up/down stages and automated assertions
+---
 
-## Architecture
+## 🎮 Play "Proxy Panic" (In-Browser Simulator)
+
+Instead of just reading code, **Proxy Panic** lets you run the reverse proxy directly in your browser, trigger chaos events, survive traffic spikes, and inspect real-time routing forensics.
 
 ```
-Client → [TLS Termination] → Reverse Proxy → Load Balancer → Backend Pool
-                                  ↑                              ↕
-                          Health Checker ←──── periodic probes ───┘
-                                  ↓
-                         Prometheus /metrics
+                    ┌────────────────────────┐
+                    │      Client Nodes      │
+                    └───────────┬────────────┘
+                                │ (HTTP/HTTPS)
+                                ▼
+                    ┌────────────────────────┐
+                    │    Go Reverse Proxy    │
+                    │  [Proxy Panic Engine]  │
+                    └───────────┬────────────┘
+                                │
+        ┌───────────────────────┼───────────────────────┐
+        ▼                       ▼                       ▼
+┌───────────────┐       ┌───────────────┐       ┌───────────────┐
+│ Backend Alpha │       │ Backend Beta  │       │ Backend Gamma │
+│  (Fast: 15ms) │       │ (Std: 25ms)   │       │ (Heavy: 45ms) │
+└───────────────┘       └───────────────┘       └───────────────┘
 ```
 
-## Quick Start
+### 🚀 5 Interactive Missions:
+1. **Mission 1 — First Hop:** Send your first proxied request to `/api/users`. Inspect hop-by-hop stripping and `X-Forwarded-*` header injection.
+2. **Mission 2 — Traffic Stampede:** Burst 20 concurrent requests. Compare **Round-Robin** vs **Least-Connections** distribution in real-time.
+3. **Mission 3 — One Server Down:** Click **Take Server Beta Offline**. Watch the active health checker detect 3 consecutive failures, eject Beta, and safely reroute 100% of traffic with zero dropped requests! Revive Beta and watch it automatically re-admitted after 2 successful probes.
+4. **Mission 4 — Header Detective:** Inspect real headers received by the backend. Answer RFC 7230 forensic questions and earn XP.
+5. **Mission 5 — Route Master:** Apply prefix-based routing rules (`/api/auth/*` ➔ Alpha) and verify that route precedence overrides default balancing.
 
-### Prerequisites
+### ⚡ 60-Second Arcade Survival Challenge:
+* 100 requests incoming in surges.
+* Dynamic chaos events: nodes slow down or crash!
+* Adapt your load balancing policy on the fly to keep success rate above 95% and earn the **SRE Maestro** badge for LinkedIn!
 
-- Go 1.21+
-- Docker & Docker Compose (for the demo)
-- k6 (for load testing): `brew install k6`
+### 🔍 Detective-Style Request Trace Drawer:
+Click any request in the live feed to open the microscopic forensic timeline:
+* `[0.0ms] Client Ingress`: Remote IP & headers recorded.
+* `[0.2ms] Middleware Pipeline`: Panic recovery & Prometheus timer started.
+* `[0.6ms] Balancer Decision`: Selected backend via active strategy.
+* `[1.0ms] Header Transformation`: Stripped hop-by-hop (`Connection`, `Keep-Alive`), injected `X-Forwarded-For`.
+* `[16.1ms] Upstream RoundTrip`: Reused persistent keep-alive TCP socket pool.
+* `[16.4ms] Client Delivery`: Attached `X-Proxy-Backend` and streamed response.
 
-### Build & Run Locally
+---
+
+## ⚡ Quick Start
+
+### 1. Launch Proxy Panic (Zero Dependencies!)
+
+Run the proxy with embedded frontend assets and self-contained mock backends:
 
 ```bash
-# Build
-make build
-
-# Generate TLS certificates
-make certs
-
-# Run (starts HTTP on :8080, HTTPS on :8443, metrics on :9090)
-make run
+go run ./cmd/proxy
 ```
 
-### Docker Compose Demo
+Open your browser at **[http://localhost:8080](http://localhost:8080)** to play the game immediately!
+
+### 2. Deploy to Render in 60 Seconds
+
+The Go service is 100% cloud-ready for **[Render](https://render.com)**, **Fly.io**, or **Docker**:
+1. Fork or push this repository to GitHub.
+2. On Render, click **New + ➔ Web Service** and connect your repo.
+3. Set **Runtime** to `Go`, **Build Command** to `go build -o proxy ./cmd/proxy`, and **Start Command** to `./proxy`.
+4. The service reads Render's `$PORT` environment variable automatically and serves **Proxy Panic** on your public `onrender.com` URL!
+
+---
+
+## 🛠️ Docker Compose Demo Stack (Optional)
+
+If you prefer testing with separate multi-container Docker services:
 
 ```bash
-# Start the full stack (proxy + 3 backends + Prometheus)
+# Start proxy + 3 backend containers + Prometheus
 make demo-up
 
-# Test it
-curl http://localhost:8080/
-curl http://localhost:8080/
-curl http://localhost:8080/
+# Proxy UI:      http://localhost:8080
+# Prometheus:    http://localhost:9091
 
-# View Prometheus metrics
-open http://localhost:9091
-
-# Run load test
+# Run k6 load test
 make loadtest
 
-# Tear down
+# Teardown
 make demo-down
 ```
 

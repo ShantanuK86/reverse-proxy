@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proxy Panic — Interactive Go Reverse Proxy & Load Balancer</title>
+  <meta name="description" content="Playable networking game & live simulator powered by a real Go reverse proxy with Round-Robin, Least-Connections, health checks, and Prometheus metrics." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="dark-theme">
+  <!-- Top Navigation & Header -->
+  <header class="navbar">
+    <div class="nav-left">
+      <div class="logo-badge">
+        <span class="logo-icon">🔀</span>
+        <div class="logo-text">
+          <span class="title">PROXY PANIC</span>
+          <span class="subtitle">Go Reverse Proxy &amp; LB Playground</span>
+        </div>
+      </div>
+      <div class="version-tag">Go 1.27 • Production Core</div>
+    </div>
+
+    <div class="nav-center">
+      <div class="xp-container">
+        <div class="xp-info">
+          <span class="xp-label">XP SCORE</span>
+          <span class="xp-value" id="xp-counter">0</span>
+          <span class="rank-badge" id="player-rank">Route Cadet</span>
+        </div>
+        <div class="xp-bar">
+          <div class="xp-fill" id="xp-bar-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-right">
+      <button class="icon-btn" id="audio-toggle-btn" title="Toggle Sound FX" aria-label="Toggle Sound">
+        <span class="sound-icon" id="sound-icon">🔊</span>
+      </button>
+      <button class="btn btn-outline" id="btn-reset-all" title="Reset all backends &amp; routes">
+        <span>↺</span> Reset
+      </button>
+      <a href="https://github.com/ShantanuK86/reverse-proxy" target="_blank" rel="noopener" class="btn btn-github">
+        <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+        GitHub
+      </a>
+    </div>
+  </header>
+
+  <!-- Main View Grid -->
+  <main class="app-layout">
+    <!-- Left Column: Interactive Visualizer & Topology -->
+    <section class="visualizer-panel card">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="live-pulse"></span>
+          <h2>Live Request Topology Canvas</h2>
+        </div>
+        <div class="topology-controls">
+          <span class="badge" id="strategy-badge">Round-Robin</span>
+          <span class="badge badge-success" id="healthy-ratio-badge">3/3 Healthy</span>
+        </div>
+      </div>
+
+      <!-- Canvas Network Visualizer -->
+      <div class="canvas-wrapper">
+        <canvas id="network-canvas" width="760" height="340"></canvas>
+        <div class="canvas-overlay" id="canvas-overlay">
+          <!-- Labels positioned dynamically over canvas -->
+        </div>
+      </div>
+
+      <!-- Server Control Cards (Alpha, Beta, Gamma) -->
+      <div class="servers-grid" id="servers-grid">
+        <!-- Rendered dynamically by JS -->
+      </div>
+    </section>
+
+    <!-- Right Column: Game Modes & Missions -->
+    <section class="gameplay-panel card">
+      <!-- Mode Tabs -->
+      <nav class="mode-tabs" role="tablist">
+        <button class="tab-btn active" data-tab="missions" role="tab">
+          <span class="tab-num">5</span> Missions
+        </button>
+        <button class="tab-btn" data-tab="arcade" role="tab">
+          <span class="tab-icon">⚡</span> 60s Panic
+        </button>
+        <button class="tab-btn" data-tab="sandbox" role="tab">
+          <span class="tab-icon">🛠️</span> Sandbox
+        </button>
+      </nav>
+
+      <!-- TAB 1: Missions -->
+      <div class="tab-content active" id="tab-missions">
+        <div class="mission-selector" id="mission-selector">
+          <button class="mission-step-btn active" data-mission="1">1</button>
+          <button class="mission-step-btn" data-mission="2">2</button>
+          <button class="mission-step-btn" data-mission="3">3</button>
+          <button class="mission-step-btn" data-mission="4">4</button>
+          <button class="mission-step-btn" data-mission="5">5</button>
+        </div>
+
+        <div class="mission-card" id="mission-card">
+          <!-- Dynamic mission content populated by JS -->
+        </div>
+      </div>
+
+      <!-- TAB 2: 60s Arcade Panic Challenge -->
+      <div class="tab-content" id="tab-arcade">
+        <div class="arcade-card">
+          <div class="arcade-header">
+            <div>
+              <h3>60-Second Traffic Surge</h3>
+              <p class="text-muted">100 client requests are incoming. Adapt strategies and resolve outages to keep success above 95%!</p>
+            </div>
+            <div class="timer-display" id="arcade-timer">60s</div>
+          </div>
+
+          <div class="arcade-stats-grid">
+            <div class="arcade-stat-box">
+              <span class="stat-label">Requests Handled</span>
+              <span class="stat-val" id="arcade-req-count">0 / 100</span>
+            </div>
+            <div class="arcade-stat-box">
+              <span class="stat-label">Success Rate</span>
+              <span class="stat-val highlight" id="arcade-success-rate">100%</span>
+            </div>
+            <div class="arcade-stat-box">
+              <span class="stat-label">Avg Latency</span>
+              <span class="stat-val" id="arcade-avg-lat">0ms</span>
+            </div>
+          </div>
+
+          <div class="arcade-actions">
+            <button class="btn btn-primary btn-large" id="btn-start-arcade">
+              <span>▶</span> START SURGE CHALLENGE
+            </button>
+          </div>
+
+          <div class="arcade-terminal" id="arcade-log">
+            <div class="terminal-line text-muted">Ready for traffic challenge. Click START to begin.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: Sandbox Playground -->
+      <div class="tab-content" id="tab-sandbox">
+        <div class="sandbox-controls">
+          <div class="form-group">
+            <label>Load Balancing Policy</label>
+            <div class="segmented-control">
+              <button class="segment-btn active" data-strategy="round-robin">Round-Robin</button>
+              <button class="segment-btn" data-strategy="least-connections">Least-Connections</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Send Custom Request</label>
+            <div class="input-row">
+              <select id="sandbox-method" class="select-field">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+              </select>
+              <input type="text" id="sandbox-path" class="text-field" value="/api/items" placeholder="/path" />
+              <button class="btn btn-primary" id="btn-sandbox-send">Send</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Traffic Generator</label>
+            <div class="btn-group">
+              <button class="btn btn-outline" id="btn-burst-10">Burst 10 Reqs</button>
+              <button class="btn btn-outline" id="btn-burst-25">Burst 25 Reqs</button>
+              <button class="btn btn-outline" id="btn-burst-50">Burst 50 Reqs</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Event Feed & Recent Traces -->
+      <div class="live-feed-section">
+        <div class="feed-header">
+          <span class="feed-title">Request Traces (Click to inspect)</span>
+          <span class="badge" id="feed-count">0 recorded</span>
+        </div>
+        <div class="feed-list" id="feed-list">
+          <div class="feed-placeholder text-muted">Send a request to see live routing forensics...</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Detective Trace Drawer (Slide out modal) -->
+  <aside class="trace-drawer" id="trace-drawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <span class="badge badge-primary" id="drawer-method">GET</span>
+        <span class="drawer-path" id="drawer-path">/api/users</span>
+      </div>
+      <button class="drawer-close-btn" id="drawer-close-btn" aria-label="Close trace drawer">✕</button>
+    </div>
+
+    <div class="drawer-body">
+      <div class="trace-overview-grid">
+        <div class="trace-box">
+          <span class="trace-box-label">Status</span>
+          <span class="trace-box-val" id="drawer-status">200 OK</span>
+        </div>
+        <div class="trace-box">
+          <span class="trace-box-label">Upstream Selected</span>
+          <span class="trace-box-val" id="drawer-backend">Backend Alpha</span>
+        </div>
+        <div class="trace-box">
+          <span class="trace-box-label">RoundTrip Time</span>
+          <span class="trace-box-val" id="drawer-duration">16.4ms</span>
+        </div>
+        <div class="trace-box">
+          <span class="trace-box-label">Balancer Strategy</span>
+          <span class="trace-box-val" id="drawer-strategy">round-robin</span>
+        </div>
+      </div>
+
+      <!-- Microscopic Forensic Timeline -->
+      <div class="drawer-section">
+        <h4>Request Journey Timeline</h4>
+        <div class="timeline" id="drawer-timeline">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+      <!-- Header Forensic Inspector -->
+      <div class="drawer-section">
+        <h4>HTTP Header Transformations</h4>
+        <div class="headers-diff-grid">
+          <div class="header-card added">
+            <span class="header-card-title">+ Added by Go Proxy</span>
+            <ul id="drawer-headers-added"></ul>
+          </div>
+          <div class="header-card stripped">
+            <span class="header-card-title">- Stripped (Hop-by-Hop RFC 7230)</span>
+            <ul id="drawer-headers-stripped"></ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Raw Payload -->
+      <div class="drawer-section">
+        <h4>Upstream Response Body</h4>
+        <pre class="json-box" id="drawer-json-body">{}</pre>
+      </div>
+    </div>
+  </aside>
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+
+  <!-- Shareable Result Card Modal -->
+  <div class="modal" id="share-modal" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>🎉 Mission Complete!</h3>
+        <button class="modal-close-btn" id="modal-close-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="share-card-preview" id="share-card-preview">
+          <!-- Dynamic card content -->
+        </div>
+        <div class="share-actions">
+          <button class="btn btn-primary btn-block" id="btn-copy-share">
+            <span>📋</span> Copy Result for LinkedIn
+          </button>
+          <span class="copy-success-text" id="copy-success-text">Copied to clipboard!</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

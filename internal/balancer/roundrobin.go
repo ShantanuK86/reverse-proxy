@@ -26,3 +26,8 @@ func (rr *RoundRobin) Next(pool *backend.Pool) (*backend.Backend, error) {
 	idx := rr.counter.Add(1) - 1
 	return healthy[idx%uint64(len(healthy))], nil
 }
+
+// Name returns the strategy identifier.
+func (rr *RoundRobin) Name() string {
+	return "round-robin"
+}

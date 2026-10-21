@@ -8,6 +8,7 @@ import (
 
 // Backend represents a single upstream server.
 type Backend struct {
+	Name        string
 	URL         *url.URL
 	alive       atomic.Bool
 	ActiveConns atomic.Int64
@@ -24,7 +25,10 @@ func NewBackend(rawURL string) (*Backend, error) {
 	if err != nil {
 		return nil, err
 	}
-	b := &Backend{URL: u}
+	b := &Backend{
+		Name: u.Host,
+		URL:  u,
+	}
 	b.alive.Store(true)
 	return b, nil
 }
@@ -110,4 +114,28 @@ func (p *Pool) Len() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return len(p.backends)
+}
+
+// GetByName finds a backend by its configured Name.
+func (p *Pool) GetByName(name string) *Backend {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for _, b := range p.backends {
+		if b.Name == name {
+			return b
+		}
+	}
+	return nil
+}
+
+// GetByURL finds a backend by matching URL string.
+func (p *Pool) GetByURL(rawURL string) *Backend {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for _, b := range p.backends {
+		if b.URL.String() == rawURL {
+			return b
+		}
+	}
+	return nil
 }

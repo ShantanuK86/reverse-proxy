@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -17,6 +18,7 @@ import (
 	"github.com/shantanuk/reverse-proxy/internal/backend"
 	"github.com/shantanuk/reverse-proxy/internal/balancer"
 	"github.com/shantanuk/reverse-proxy/internal/config"
+	"github.com/shantanuk/reverse-proxy/internal/game"
 	"github.com/shantanuk/reverse-proxy/internal/health"
 	"github.com/shantanuk/reverse-proxy/internal/middleware"
 	"github.com/shantanuk/reverse-proxy/internal/proxy"
@@ -31,27 +33,59 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
-	// Load configuration.
+	// Determine port (support cloud platforms like Render via PORT env var)
+	httpAddr := ":8080"
+	if envPort := os.Getenv("PORT"); envPort != "" {
+		httpAddr = ":" + envPort
+	}
+
+	// Load configuration (if missing, use defaults)
 	cfg, err := config.Load(*configPath)
 	if err != nil {
-		logger.Error("failed to load config", "error", err)
+		logger.Warn("could not load config file, falling back to interactive game defaults", "error", err)
+		cfg = &config.Config{
+			Listen: config.ListenConfig{HTTPAddr: httpAddr, HTTPSAddr: ":8443"},
+			Balancer: config.BalancerConfig{Strategy: "round-robin"},
+			HealthCheck: config.HealthCheckConfig{
+				Enabled:            true,
+				Path:               "/healthz",
+				Interval:           3 * time.Second,
+				Timeout:            1 * time.Second,
+				UnhealthyThreshold: 3,
+				HealthyThreshold:   2,
+			},
+			Timeouts: config.TimeoutConfig{
+				Read:          5 * time.Second,
+				Write:         10 * time.Second,
+				Idle:          120 * time.Second,
+				ShutdownGrace: 10 * time.Second,
+			},
+		}
+	} else if os.Getenv("PORT") != "" {
+		cfg.Listen.HTTPAddr = httpAddr
+	}
+
+	// Initialize in-process mock backends for the interactive game
+	mockMgr, err := game.NewMockManager()
+	if err != nil {
+		logger.Error("failed to start mock backends", "error", err)
 		os.Exit(1)
 	}
-	logger.Info("configuration loaded",
-		"backends", len(cfg.Backends),
-		"strategy", cfg.Balancer.Strategy,
-		"tls_enabled", cfg.TLS.Enabled,
-	)
+	defer mockMgr.Close()
 
-	// Initialize backend pool.
-	urls := make([]string, len(cfg.Backends))
-	for i, b := range cfg.Backends {
-		urls[i] = b.URL
-	}
-	pool, err := backend.NewPool(urls)
+	// Initialize backend pool using mock backends (Alpha, Beta, Gamma)
+	pool, err := backend.NewPool(mockMgr.URLs())
 	if err != nil {
 		logger.Error("failed to create backend pool", "error", err)
 		os.Exit(1)
+	}
+
+	// Set descriptive display names on pool backends
+	allBackends := pool.All()
+	for i, mb := range mockMgr.All() {
+		if i < len(allBackends) {
+			allBackends[i].Name = mb.Name
+		}
 	}
 
 	// Initialize balancer.
@@ -67,28 +101,28 @@ func main() {
 	reg.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 	metrics := middleware.NewMetrics(reg)
 
-	// Set initial backend health gauges.
 	for _, b := range pool.All() {
 		metrics.SetBackendHealth(b.URL.String(), true)
 	}
 
-	// Create proxy handler.
+	// Create core reverse proxy handler.
 	proxyHandler := proxy.New(pool, bal, logger)
 	proxyHandler.ErrorCounter = metrics.RecordBackendError
 
 	// Build middleware chain: Recovery → Logging → Metrics → Proxy
-	var handler http.Handler = proxyHandler
-	handler = metrics.InstrumentHandler(handler)
-	handler = middleware.Logging(logger)(handler)
-	handler = middleware.Recovery(logger)(handler)
+	var proxiedHandler http.Handler = proxyHandler
+	proxiedHandler = metrics.InstrumentHandler(proxiedHandler)
+	proxiedHandler = middleware.Logging(logger)(proxiedHandler)
+	proxiedHandler = middleware.Recovery(logger)(proxiedHandler)
 
 	// Context for graceful shutdown.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	// Start health checker.
+	var checker *health.Checker
 	if cfg.HealthCheck.Enabled {
-		checker := health.NewChecker(pool, health.Config{
+		checker = health.NewChecker(pool, health.Config{
 			Path:               cfg.HealthCheck.Path,
 			Interval:           cfg.HealthCheck.Interval,
 			Timeout:            cfg.HealthCheck.Timeout,
@@ -101,30 +135,60 @@ func main() {
 		go checker.Run(ctx)
 	}
 
-	// Start metrics server on separate port.
-	metricsMux := http.NewServeMux()
-	metricsMux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-	metricsServer := &http.Server{
-		Addr:    ":9090",
-		Handler: metricsMux,
-	}
-	go func() {
-		logger.Info("metrics server starting", "addr", ":9090")
-		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("metrics server error", "error", err)
+	// Create Game Controller & Multiplexer
+	gameController := game.NewController(pool, proxyHandler, checker, mockMgr)
+
+	mainMux := http.NewServeMux()
+
+	// Mount embedded game static assets
+	mainMux.Handle("/static/", game.StaticHandler())
+
+	// Mount game API endpoints
+	gameController.RegisterRoutes(mainMux)
+
+	// Expose metrics on main port as well (essential for single-port cloud hosts like Render)
+	mainMux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+
+	// Direct proxy route
+	mainMux.Handle("/proxy/", http.StripPrefix("/proxy", proxiedHandler))
+
+	// Root handler: serve game UI at / or proxy generic traffic
+	mainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+			game.StaticHandler().ServeHTTP(w, r)
+			return
 		}
-	}()
+		// Proxy all other paths through the reverse proxy
+		proxiedHandler.ServeHTTP(w, r)
+	})
+
+	// Start separate metrics server on :9090 (if not colliding with main port)
+	var metricsServer *http.Server
+	if cfg.Listen.HTTPAddr != ":9090" {
+		metricsMux := http.NewServeMux()
+		metricsMux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+		metricsServer = &http.Server{
+			Addr:    ":9090",
+			Handler: metricsMux,
+		}
+		go func() {
+			logger.Info("metrics server starting", "addr", ":9090")
+			if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				logger.Warn("metrics server stopped", "error", err)
+			}
+		}()
+	}
 
 	// Start HTTP server.
 	httpServer := &http.Server{
 		Addr:         cfg.Listen.HTTPAddr,
-		Handler:      handler,
+		Handler:      mainMux,
 		ReadTimeout:  cfg.Timeouts.Read,
 		WriteTimeout: cfg.Timeouts.Write,
 		IdleTimeout:  cfg.Timeouts.Idle,
 	}
 	go func() {
-		logger.Info("HTTP server starting", "addr", cfg.Listen.HTTPAddr)
+		logger.Info("🚀 Proxy Panic running!", "addr", cfg.Listen.HTTPAddr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("HTTP server error", "error", err)
 		}
@@ -143,7 +207,7 @@ func main() {
 		}
 		httpsServer = &http.Server{
 			Addr:         cfg.Listen.HTTPSAddr,
-			Handler:      handler,
+			Handler:      mainMux,
 			TLSConfig:    tlsConfig,
 			ReadTimeout:  cfg.Timeouts.Read,
 			WriteTimeout: cfg.Timeouts.Write,
@@ -174,8 +238,10 @@ func main() {
 			logger.Error("HTTPS server shutdown error", "error", err)
 		}
 	}
-	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
-		logger.Error("metrics server shutdown error", "error", err)
+	if metricsServer != nil {
+		if err := metricsServer.Shutdown(shutdownCtx); err != nil {
+			logger.Error("metrics server shutdown error", "error", err)
+		}
 	}
 
 	fmt.Println("server stopped gracefully")

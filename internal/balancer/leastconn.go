@@ -33,3 +33,8 @@ func (lc *LeastConn) Next(pool *backend.Pool) (*backend.Backend, error) {
 
 	return best, nil
 }
+
+// Name returns the strategy identifier.
+func (lc *LeastConn) Name() string {
+	return "least-connections"
+}

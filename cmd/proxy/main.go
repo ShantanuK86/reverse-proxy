@@ -140,8 +140,9 @@ func main() {
 
 	mainMux := http.NewServeMux()
 
-	// Mount embedded game static assets
-	mainMux.Handle("/static/", game.StaticHandler())
+	// Mount embedded game static assets with prefix stripped
+	staticFileServer := game.StaticHandler()
+	mainMux.Handle("/static/", http.StripPrefix("/static/", staticFileServer))
 
 	// Mount game API endpoints
 	gameController.RegisterRoutes(mainMux)
@@ -152,10 +153,11 @@ func main() {
 	// Direct proxy route
 	mainMux.Handle("/proxy/", http.StripPrefix("/proxy", proxiedHandler))
 
-	// Root handler: serve game UI at / or proxy generic traffic
+	// Root handler: serve game UI at / or static assets, else proxy generic traffic
 	mainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
-			game.StaticHandler().ServeHTTP(w, r)
+		path := r.URL.Path
+		if path == "/" || path == "/index.html" || path == "/style.css" || path == "/app.js" {
+			staticFileServer.ServeHTTP(w, r)
 			return
 		}
 		// Proxy all other paths through the reverse proxy

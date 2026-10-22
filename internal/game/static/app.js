@@ -1,5 +1,6 @@
 // Proxy Panic — Interactive Go Reverse Proxy Simulator
-// Full Client-side Engine: Topology Canvas, Web Audio Synth, 5 Missions, 60s Arcade Challenge
+// Twodo.design Inspired Editorial Craftsmanship
+// Topology Canvas, Web Audio Synth, 5 Guided Missions, 60s Surge Challenge, Request Forensics
 
 (function () {
   "use strict";
@@ -41,10 +42,10 @@
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(800, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.12);
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+      osc.frequency.setValueAtTime(650, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.005, ctx.currentTime + 0.12);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
@@ -60,12 +61,12 @@
         const gain = ctx.createGain();
         osc.type = "triangle";
         osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.15, ctx.currentTime + idx * 0.08);
-        gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + idx * 0.08 + 0.25);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime + idx * 0.08);
+        gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + idx * 0.08 + 0.28);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(ctx.currentTime + idx * 0.08);
-        osc.stop(ctx.currentTime + idx * 0.08 + 0.25);
+        osc.stop(ctx.currentTime + idx * 0.08 + 0.28);
       });
     },
     playAlert() {
@@ -76,8 +77,8 @@
       const gain = ctx.createGain();
       osc.type = "sawtooth";
       osc.frequency.setValueAtTime(160, ctx.currentTime);
-      osc.frequency.setValueAtTime(140, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      osc.frequency.setValueAtTime(130, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
       gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.22);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -91,8 +92,8 @@
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(600, ctx.currentTime);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      osc.frequency.setValueAtTime(540, ctx.currentTime);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
       gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.04);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -101,43 +102,45 @@
     }
   };
 
-  // --- Network Canvas Visualization ---
+  // --- Network Canvas Visualization (Warm Editorial Style) ---
   const canvas = document.getElementById("network-canvas");
   const ctx = canvas.getContext("2d");
 
   // Fixed visual node coordinates
   const nodes = {
-    client: { x: 90, y: 170, label: "Client Ingress", icon: "💻", color: "#38bdf8" },
-    proxy:  { x: 380, y: 170, label: "Go Reverse Proxy", icon: "🔀", color: "#00f2fe" },
-    alpha:  { x: 670, y: 70,  label: "Backend Alpha", icon: "⚡", color: "#10b981", id: "alpha" },
-    beta:   { x: 670, y: 170, label: "Backend Beta",  icon: "⚙️", color: "#38bdf8", id: "beta" },
-    gamma:  { x: 670, y: 270, label: "Backend Gamma", icon: "🛡️", color: "#a855f7", id: "gamma" },
+    client: { x: 95, y: 155, label: "Client Ingress", icon: "💻", color: "#8f8576" },
+    proxy:  { x: 380, y: 155, label: "Go Reverse Proxy", icon: "🔀", color: "#e8be6c" },
+    alpha:  { x: 665, y: 65,  label: "Backend Alpha", icon: "⚡", color: "#a8c79a", id: "alpha" },
+    beta:   { x: 665, y: 155, label: "Backend Beta",  icon: "⚙️", color: "#e8a97a", id: "beta" },
+    gamma:  { x: 665, y: 245, label: "Backend Gamma", icon: "🛡️", color: "#c99ae8", id: "gamma" },
   };
 
   function spawnPacket(targetBackendID, isSuccess = true) {
     const targetNode = nodes[targetBackendID] || nodes.alpha;
-    // Client -> Proxy
+    // Client -> Proxy -> Backend -> Client
     state.packets.push({
       startX: nodes.client.x, startY: nodes.client.y,
       endX: nodes.proxy.x,   endY: nodes.proxy.y,
       x: nodes.client.x,     y: nodes.client.y,
-      progress: 0, speed: 0.04,
-      phase: 1, // 1: Client->Proxy, 2: Proxy->Backend, 3: Backend->Proxy->Client
+      progress: 0, speed: 0.042,
+      phase: 1, // 1: Client->Proxy, 2: Proxy->Backend, 3: Backend->Client
       targetNode: targetNode,
       isSuccess: isSuccess,
-      color: isSuccess ? "#00f2fe" : "#ef4444"
+      color: isSuccess ? "#e8be6c" : "#e06050"
     });
   }
 
   function renderCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const isDark = document.documentElement.getAttribute("data-theme") !== "light";
 
     // 1. Draw connection beams
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     [nodes.alpha, nodes.beta, nodes.gamma].forEach(target => {
-      // Beam Proxy -> Target
       const isDead = isBackendDead(target.id);
-      ctx.strokeStyle = isDead ? "rgba(239, 68, 68, 0.3)" : "rgba(56, 189, 248, 0.25)";
+      ctx.strokeStyle = isDead
+        ? (isDark ? "rgba(224, 96, 80, 0.45)" : "rgba(193, 68, 54, 0.5)")
+        : (isDark ? "rgba(232, 190, 108, 0.22)" : "rgba(184, 132, 42, 0.28)");
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(nodes.proxy.x, nodes.proxy.y);
@@ -146,7 +149,7 @@
     });
 
     // Beam Client -> Proxy
-    ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
+    ctx.strokeStyle = isDark ? "rgba(232, 190, 108, 0.35)" : "rgba(184, 132, 42, 0.35)";
     ctx.beginPath();
     ctx.moveTo(nodes.client.x, nodes.client.y);
     ctx.lineTo(nodes.proxy.x, nodes.proxy.y);
@@ -155,15 +158,17 @@
 
     // 2. Draw Nodes
     // Client Node
-    drawNode(nodes.client, 32, "rgba(56, 189, 248, 0.15)", "#38bdf8");
+    drawNode(nodes.client, 28, isDark ? "rgba(143, 133, 118, 0.15)" : "rgba(143, 133, 118, 0.12)", nodes.client.color);
     // Proxy Node (Center Hub)
-    drawNode(nodes.proxy, 42, "rgba(0, 242, 254, 0.2)", "#00f2fe", true);
+    drawNode(nodes.proxy, 38, isDark ? "rgba(232, 190, 108, 0.2)" : "rgba(184, 132, 42, 0.18)", nodes.proxy.color, true);
     // Upstream Nodes
     [nodes.alpha, nodes.beta, nodes.gamma].forEach(bNode => {
       const isDead = isBackendDead(bNode.id);
-      const color = isDead ? "#ef4444" : bNode.color;
-      const bg = isDead ? "rgba(239, 68, 68, 0.2)" : "rgba(16, 185, 129, 0.15)";
-      drawNode(bNode, 34, bg, color);
+      const color = isDead ? (isDark ? "#e06050" : "#c14436") : bNode.color;
+      const bg = isDead
+        ? (isDark ? "rgba(224, 96, 80, 0.2)" : "rgba(193, 68, 54, 0.15)")
+        : (isDark ? "rgba(168, 199, 154, 0.18)" : "rgba(92, 110, 78, 0.12)");
+      drawNode(bNode, 30, bg, color);
     });
 
     // 3. Update & Draw Flying Packets
@@ -205,10 +210,10 @@
       // Draw packet glowing sphere
       ctx.save();
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
       ctx.fillStyle = p.color;
       ctx.shadowColor = p.color;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 10;
       ctx.fill();
       ctx.restore();
     }
@@ -217,29 +222,30 @@
   }
 
   function drawNode(node, radius, bgFill, strokeColor, isPulse = false) {
+    const isDark = document.documentElement.getAttribute("data-theme") !== "light";
     ctx.save();
     ctx.beginPath();
     ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
     ctx.fillStyle = bgFill;
     ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.8;
     if (isPulse) {
       ctx.shadowColor = strokeColor;
-      ctx.shadowBlur = 16;
+      ctx.shadowBlur = 14;
     }
     ctx.fill();
     ctx.stroke();
 
     // Icon
-    ctx.font = "18px sans-serif";
+    ctx.font = "16px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(node.icon, node.x, node.y);
 
     // Label
-    ctx.font = "12px 'Outfit', sans-serif";
-    ctx.fillStyle = "#cbd5e1";
-    ctx.fillText(node.label, node.x, node.y + radius + 16);
+    ctx.font = "500 11px 'IBM Plex Mono', monospace";
+    ctx.fillStyle = isDark ? "#c2baa8" : "#5a5247";
+    ctx.fillText(node.label, node.x, node.y + radius + 15);
     ctx.restore();
   }
 
@@ -305,7 +311,7 @@
         setTimeout(() => {
           const targets = ["alpha", "beta", "gamma"];
           spawnPacket(targets[i % 3], true);
-        }, i * 40);
+        }, i * 35);
       }
 
       await fetchStatus();
@@ -356,12 +362,17 @@
       stratBadge.textContent = state.strategy === "round-robin" ? "Round-Robin" : "Least-Connections";
     }
 
+    // Sync pill options in sandbox
+    document.querySelectorAll(".pill-option").forEach(btn => {
+      btn.classList.toggle("active", btn.getAttribute("data-strategy") === state.strategy);
+    });
+
     // Healthy Ratio Badge
-    const aliveCount = state.backends.filter(b => b.alive).length;
+    const aliveCount = state.backends.filter(b => b.alive && b.is_healthy !== false).length;
     const ratioBadge = document.getElementById("healthy-ratio-badge");
     if (ratioBadge) {
       ratioBadge.textContent = `${aliveCount}/${state.backends.length} Healthy`;
-      ratioBadge.className = aliveCount === state.backends.length ? "badge badge-success" : "badge badge-danger";
+      ratioBadge.className = aliveCount === state.backends.length ? "tag mono healthy-tag" : "tag mono danger-tag";
     }
 
     // Render Server Cards in Grid
@@ -374,14 +385,14 @@
           <div class="server-node-card ${isOffline ? 'offline' : ''}">
             <div class="server-header">
               <span class="server-name">${b.name}</span>
-              <span class="badge ${isOffline ? 'badge-danger' : 'badge-success'}">
+              <span class="status-badge ${isOffline ? 's502' : 's200'}">
                 ${isOffline ? '503 Fail' : '200 OK'}
               </span>
             </div>
             <div class="server-stats">
-              <div class="stat-line"><span>Latency:</span><span>${b.latency_ms || 15}ms</span></div>
-              <div class="stat-line"><span>Active Conns:</span><span>${b.active_conns || 0}</span></div>
-              <div class="stat-line"><span>Requests:</span><span>${b.request_count || 0}</span></div>
+              <div class="stat-line"><span>Latency:</span><span class="mono">${b.latency_ms || 15}ms</span></div>
+              <div class="stat-line"><span>Active Conns:</span><span class="mono">${b.active_conns || 0}</span></div>
+              <div class="stat-line"><span>Total Reqs:</span><span class="mono">${b.request_count || 0}</span></div>
             </div>
             <div class="server-actions">
               <button class="btn-chaos-toggle ${isOffline ? 'revive' : 'kill'}" data-backend="${mockId}">
@@ -407,14 +418,16 @@
     document.getElementById("xp-bar-fill").style.width = `${xpPercent}%`;
 
     const rankBadge = document.getElementById("player-rank");
-    if (state.xp >= 1000) rankBadge.textContent = "SRE Maestro 👑";
-    else if (state.xp >= 600) rankBadge.textContent = "Senior Route Master";
-    else if (state.xp >= 300) rankBadge.textContent = "Network Architect";
-    else if (state.xp >= 100) rankBadge.textContent = "Proxy Operator";
-    else rankBadge.textContent = "Route Cadet";
+    if (rankBadge) {
+      if (state.xp >= 1000) rankBadge.textContent = "SRE Maestro 👑";
+      else if (state.xp >= 600) rankBadge.textContent = "Senior Route Master";
+      else if (state.xp >= 300) rankBadge.textContent = "Network Architect";
+      else if (state.xp >= 100) rankBadge.textContent = "Proxy Operator";
+      else rankBadge.textContent = "Route Cadet";
+    }
 
     // Update mission steps completed styling
-    document.querySelectorAll(".mission-step-btn").forEach(btn => {
+    document.querySelectorAll(".step-btn").forEach(btn => {
       const m = parseInt(btn.getAttribute("data-mission"));
       if (state.completedMissions.has(m)) {
         btn.classList.add("completed");
@@ -426,7 +439,7 @@
     const feedList = document.getElementById("feed-list");
     if (!feedList) return;
 
-    const placeholder = feedList.querySelector(".feed-placeholder");
+    const placeholder = feedList.querySelector(".empty-state");
     if (placeholder) placeholder.remove();
 
     const item = document.createElement("div");
@@ -437,7 +450,7 @@
         <span class="status-badge ${statusClass}">${trace.status_code}</span>
         <span><strong>${trace.method}</strong> ${trace.path}</span>
       </div>
-      <div class="feed-item-right text-muted">
+      <div class="feed-item-right" style="color:var(--ink-soft);">
         <span>${trace.selected_backend}</span> •
         <span>${trace.total_duration_ms.toFixed(1)}ms</span>
       </div>
@@ -476,7 +489,7 @@
       <div class="timeline-step">
         <div class="timeline-header">
           <span>${step.title}</span>
-          <span class="timeline-time">${step.time_ms.toFixed(1)}ms</span>
+          <span class="timeline-time mono">${step.time_ms.toFixed(1)}ms</span>
         </div>
         <div class="timeline-desc">${step.desc}</div>
       </div>
@@ -521,15 +534,15 @@
         container.innerHTML = `
           <div class="mission-interactive-box">
             <div class="input-row">
-              <select id="m1-method" class="select-field">
+              <select id="m1-method" class="clean-select mono">
                 <option value="GET">GET</option>
                 <option value="POST">POST</option>
               </select>
-              <input type="text" id="m1-path" class="text-field" value="/api/users" />
-              <button class="btn btn-primary" id="m1-send-btn">Send Request</button>
+              <input type="text" id="m1-path" class="clean-input mono" value="/api/users" />
+              <button class="btn-solid" id="m1-send-btn">Send Request</button>
             </div>
           </div>
-          <div id="m1-result" style="display:none; margin-top: 0.75rem;"></div>
+          <div id="m1-result" style="display:none;"></div>
         `;
 
         document.getElementById("m1-send-btn").onclick = async () => {
@@ -540,9 +553,9 @@
           const resultElem = document.getElementById("m1-result");
           resultElem.style.display = "block";
           resultElem.innerHTML = `
-            <div class="badge badge-success" style="padding: 0.5rem; display: block;">
-              ✓ Request Routed Successfully to <strong>${trace.selected_backend}</strong> in ${trace.total_duration_ms.toFixed(1)}ms!
-              Click the request trace in the feed below to inspect headers.
+            <div class="alert-box success">
+              ✓ Request routed cleanly to <strong>${trace.selected_backend}</strong> in ${trace.total_duration_ms.toFixed(1)}ms.
+              Click the request entry in the forensics feed below to inspect headers.
             </div>
           `;
 
@@ -563,13 +576,16 @@
       renderInteractive(container) {
         container.innerHTML = `
           <div class="mission-interactive-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.75rem;">
-              <span>Active Policy: <strong id="m2-active-policy">${state.strategy}</strong></span>
-              <button class="btn btn-outline" id="m2-toggle-policy">Switch to ${state.strategy === 'round-robin' ? 'Least-Connections' : 'Round-Robin'}</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.85rem;">
+              <span class="mono" style="font-size:0.82rem;">Policy: <strong id="m2-active-policy">${state.strategy}</strong></span>
+              <button class="btn-subtle mono" id="m2-toggle-policy">Switch to ${state.strategy === 'round-robin' ? 'Least-Connections' : 'Round-Robin'}</button>
             </div>
-            <button class="btn btn-primary btn-block" id="m2-burst-btn">🚀 BURST 20 REQUESTS</button>
+            <button class="play-action-btn full-w" id="m2-burst-btn">
+              <span class="play-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+              Burst 20 Requests
+            </button>
           </div>
-          <div id="m2-result" style="display:none; margin-top: 0.75rem;"></div>
+          <div id="m2-result" style="display:none;"></div>
         `;
 
         document.getElementById("m2-toggle-policy").onclick = async () => {
@@ -586,15 +602,15 @@
 
           const distEntries = Object.entries(res.distribution || {});
           resultElem.innerHTML = `
-            <div class="card" style="padding: 0.75rem; background: rgba(7,10,20,0.8);">
-              <div style="font-weight:700; margin-bottom:0.5rem; color:var(--cyan-glow);">Traffic Distribution (${res.strategy}):</div>
+            <div class="alert-box success">
+              <div style="font-weight:700; margin-bottom:0.4rem; font-family:'Fraunces',serif;">Traffic Distribution (${res.strategy}):</div>
               ${distEntries.map(([k, count]) => `
-                <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:0.8rem; margin-bottom:0.25rem;">
+                <div style="display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:0.78rem; margin-bottom:0.2rem;">
                   <span>${k}:</span>
                   <span><strong>${count}</strong> reqs (${((count/20)*100).toFixed(0)}%)</span>
                 </div>
               `).join("")}
-              <div style="margin-top:0.5rem; font-size:0.75rem; color:var(--text-muted);">
+              <div style="margin-top:0.5rem; font-size:0.75rem; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;">
                 p95 Latency: ${res.p95_latency_ms.toFixed(1)}ms | Success Rate: ${res.success_rate_pct.toFixed(0)}%
               </div>
             </div>
@@ -617,17 +633,17 @@
       renderInteractive(container) {
         container.innerHTML = `
           <div class="mission-interactive-box">
-            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.75rem;">
-              Step 1: Click "Kill Server Beta".<br>
-              Step 2: Send traffic to observe automatic ejection and zero 502s.<br>
-              Step 3: Revive Server Beta to watch automatic re-admission.
+            <p class="lede-sm" style="margin-bottom:0.85rem;">
+              Step 1: Take Server Beta offline.<br>
+              Step 2: Send test requests to observe automatic ejection and zero 502s.<br>
+              Step 3: Revive Server Beta to verify automatic re-admission.
             </p>
             <div style="display:flex; gap:0.5rem;">
-              <button class="btn btn-primary" id="m3-kill-beta" style="background:var(--red-alert);">Take Beta Offline</button>
-              <button class="btn btn-outline" id="m3-test-traffic">Send 10 Test Reqs</button>
+              <button class="btn-solid" id="m3-kill-beta" style="background:var(--alert-red); color:#fff;">Take Beta Offline</button>
+              <button class="btn-subtle mono" id="m3-test-traffic">Send 10 Test Reqs</button>
             </div>
           </div>
-          <div id="m3-result" style="display:none; margin-top: 0.75rem;"></div>
+          <div id="m3-result" style="display:none;"></div>
         `;
 
         document.getElementById("m3-kill-beta").onclick = async () => {
@@ -635,8 +651,8 @@
           const resultElem = document.getElementById("m3-result");
           resultElem.style.display = "block";
           resultElem.innerHTML = `
-            <div class="badge badge-danger" style="padding:0.5rem; display:block;">
-              ⚠️ Backend Beta taken offline! Health checker will eject it. Now click "Send 10 Test Reqs".
+            <div class="alert-box danger">
+              ⚠️ Backend Beta taken offline. Active health checker will eject it on next pass. Now click "Send 10 Test Reqs".
             </div>
           `;
         };
@@ -646,8 +662,8 @@
           const resultElem = document.getElementById("m3-result");
           resultElem.style.display = "block";
           resultElem.innerHTML = `
-            <div class="badge badge-success" style="padding:0.5rem; display:block;">
-              ✓ Failover Verified: ${res.success_rate_pct.toFixed(0)}% success rate! All traffic cleanly avoided dead Beta node.
+            <div class="alert-box success">
+              ✓ Failover Verified: ${res.success_rate_pct.toFixed(0)}% success rate! All traffic cleanly avoided the offline Beta node.
             </div>
           `;
 
@@ -668,19 +684,19 @@
       renderInteractive(container) {
         container.innerHTML = `
           <div class="mission-interactive-box">
-            <p style="font-weight:700; margin-bottom:0.5rem;">Detective Question:</p>
-            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.75rem;">
+            <p style="font-weight:600; margin-bottom:0.35rem; font-family:'Fraunces', serif;">Detective Question:</p>
+            <p class="lede-sm" style="margin-bottom:0.75rem;">
               Which headers must the Go reverse proxy strip to prevent connection-state confusion upstream?
             </p>
-            <div style="display:flex; flex-direction:column; gap:0.4rem; font-family:var(--font-mono); font-size:0.8rem; margin-bottom:1rem;">
-              <label><input type="checkbox" id="m4-opt1" value="Connection"> Connection</label>
-              <label><input type="checkbox" id="m4-opt2" value="Keep-Alive"> Keep-Alive</label>
-              <label><input type="checkbox" id="m4-opt3" value="User-Agent"> User-Agent</label>
-              <label><input type="checkbox" id="m4-opt4" value="Authorization"> Authorization</label>
+            <div style="display:flex; flex-direction:column; gap:0.45rem; font-family:'IBM Plex Mono', monospace; font-size:0.8rem; margin-bottom:1rem;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="m4-opt1" value="Connection"> Connection</label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="m4-opt2" value="Keep-Alive"> Keep-Alive</label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="m4-opt3" value="User-Agent"> User-Agent</label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="m4-opt4" value="Authorization"> Authorization</label>
             </div>
-            <button class="btn btn-primary" id="m4-submit-btn">Verify Investigation</button>
+            <button class="btn-solid" id="m4-submit-btn">Verify Investigation</button>
           </div>
-          <div id="m4-result" style="display:none; margin-top: 0.75rem;"></div>
+          <div id="m4-result" style="display:none;"></div>
         `;
 
         document.getElementById("m4-submit-btn").onclick = async () => {
@@ -700,7 +716,7 @@
           const resultElem = document.getElementById("m4-result");
           resultElem.style.display = "block";
           if (data.correct) {
-            resultElem.innerHTML = `<div class="badge badge-success" style="padding:0.5rem; display:block;">🎉 ${data.explanation}</div>`;
+            resultElem.innerHTML = `<div class="alert-box success">🎉 ${data.explanation}</div>`;
             if (!state.completedMissions.has(4)) {
               state.completedMissions.add(4);
               state.xp += data.xp_awarded;
@@ -708,7 +724,7 @@
               updateUI();
             }
           } else {
-            resultElem.innerHTML = `<div class="badge badge-danger" style="padding:0.5rem; display:block;">❌ ${data.explanation}</div>`;
+            resultElem.innerHTML = `<div class="alert-box danger">❌ ${data.explanation}</div>`;
             Sound.playAlert();
           }
         };
@@ -722,15 +738,15 @@
       renderInteractive(container) {
         container.innerHTML = `
           <div class="mission-interactive-box">
-            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.75rem;">
-              Click "Apply Route Rule" to map <code>/api/auth/* ➔ Backend Alpha</code>, then test with a request.
+            <p class="lede-sm" style="margin-bottom:0.75rem;">
+              Click "Apply Route Rule" to bind <code>/api/auth/* &rarr; Backend Alpha</code>, then test with a live request.
             </p>
             <div style="display:flex; gap:0.5rem;">
-              <button class="btn btn-outline" id="m5-rule-btn">1. Apply Route Rule</button>
-              <button class="btn btn-primary" id="m5-test-btn" disabled>2. Test /api/auth/login</button>
+              <button class="btn-subtle mono" id="m5-rule-btn">1. Apply Route Rule</button>
+              <button class="btn-solid" id="m5-test-btn" disabled style="opacity:0.6;">2. Test /api/auth/login</button>
             </div>
           </div>
-          <div id="m5-result" style="display:none; margin-top: 0.75rem;"></div>
+          <div id="m5-result" style="display:none;"></div>
         `;
 
         document.getElementById("m5-rule-btn").onclick = async () => {
@@ -740,10 +756,12 @@
             body: JSON.stringify({ action: "add", prefix: "/api/auth", backend_name: "alpha" })
           });
           Sound.playClick();
-          document.getElementById("m5-test-btn").disabled = false;
+          const testBtn = document.getElementById("m5-test-btn");
+          testBtn.disabled = false;
+          testBtn.style.opacity = "1";
           const resultElem = document.getElementById("m5-result");
           resultElem.style.display = "block";
-          resultElem.innerHTML = `<div class="badge badge-success" style="padding:0.4rem; display:block;">Rule active: /api/auth/* ➔ Alpha. Now click Test.</div>`;
+          resultElem.innerHTML = `<div class="alert-box success">Rule active: <code>/api/auth/* &rarr; Alpha</code>. Now click Test.</div>`;
         };
 
         document.getElementById("m5-test-btn").onclick = async () => {
@@ -751,7 +769,7 @@
           const resultElem = document.getElementById("m5-result");
           resultElem.style.display = "block";
           resultElem.innerHTML = `
-            <div class="badge badge-success" style="padding:0.5rem; display:block;">
+            <div class="alert-box success">
               👑 Route Precedence Verified! Request directly reached <strong>${trace.selected_backend}</strong>.
             </div>
           `;
@@ -772,13 +790,13 @@
     state.activeMission = id;
     const mission = missions.find(m => m.id === id) || missions[0];
 
-    document.querySelectorAll(".mission-step-btn").forEach(btn => {
+    document.querySelectorAll(".step-btn").forEach(btn => {
       btn.classList.toggle("active", parseInt(btn.getAttribute("data-mission")) === id);
     });
 
     const card = document.getElementById("mission-card");
     card.innerHTML = `
-      <div class="mission-badge">${mission.badge}</div>
+      <span class="mission-badge mono">${mission.badge}</span>
       <h3>${mission.title}</h3>
       <p class="mission-desc">${mission.desc}</p>
       <div id="mission-action-area"></div>
@@ -796,7 +814,10 @@
 
     const startBtn = document.getElementById("btn-start-arcade");
     startBtn.disabled = true;
-    startBtn.textContent = "SURGE IN PROGRESS...";
+    startBtn.innerHTML = `
+      <span class="play-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg></span>
+      Surge in progress...
+    `;
 
     const logElem = document.getElementById("arcade-log");
     logElem.innerHTML = "";
@@ -814,7 +835,7 @@
         await toggleBackendHealth("beta", "kill");
       }
       if (state.arcadeTimer === 30) {
-        addArcadeLog("⚠️ CHAOS EVENT: Backend Alpha CPU latency spiked to 200ms!");
+        addArcadeLog("⚠️ CHAOS EVENT: Backend Alpha latency spiked to 200ms!");
         await fetch("/game/api/chaos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -822,7 +843,7 @@
         });
       }
       if (state.arcadeTimer === 15) {
-        addArcadeLog("💡 TIP: Switch to Least-Connections to route away from slow nodes!");
+        addArcadeLog("💡 TIP: Switch to Least-Connections to route away from high-latency nodes!");
       }
 
       // Fire bursts of 5-8 requests
@@ -853,7 +874,10 @@
 
     const startBtn = document.getElementById("btn-start-arcade");
     startBtn.disabled = false;
-    startBtn.textContent = "REPLAY SURGE CHALLENGE";
+    startBtn.innerHTML = `
+      <span class="play-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+      Replay Surge Challenge
+    `;
 
     const successRate = ((state.arcadeStats.handled - state.arcadeStats.errors) / Math.max(1, state.arcadeStats.handled) * 100).toFixed(0);
     addArcadeLog(`🏁 Challenge Complete! Handled ${state.arcadeStats.handled} requests with ${successRate}% success.`);
@@ -871,7 +895,7 @@
   function addArcadeLog(msg) {
     const logElem = document.getElementById("arcade-log");
     const line = document.createElement("div");
-    line.className = "terminal-line";
+    line.className = "mono log-line";
     line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
     logElem.appendChild(line);
     logElem.scrollTop = logElem.scrollHeight;
@@ -908,6 +932,26 @@ https://github.com/ShantanuK86/reverse-proxy`;
     // Canvas start
     renderCanvas();
 
+    // Theme toggle
+    const themeBtn = document.getElementById("theme-toggle-btn");
+    const themeIcon = document.getElementById("theme-icon");
+    function updateThemeIcon() {
+      const cur = document.documentElement.getAttribute("data-theme") || "dark";
+      if (themeIcon) themeIcon.textContent = cur === "dark" ? "◐" : "◑";
+    }
+    updateThemeIcon();
+
+    if (themeBtn) {
+      themeBtn.onclick = () => {
+        Sound.playClick();
+        const cur = document.documentElement.getAttribute("data-theme") || "dark";
+        const next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        try { localStorage.setItem("proxy-panic-theme", next); } catch(e){}
+        updateThemeIcon();
+      };
+    }
+
     // Load initial mission
     loadMission(1);
 
@@ -915,12 +959,12 @@ https://github.com/ShantanuK86/reverse-proxy`;
     fetchStatus();
     setInterval(fetchStatus, 3000);
 
-    // Tab buttons
-    document.querySelectorAll(".tab-btn").forEach(btn => {
+    // Mode tab buttons (Missions, 60s Panic, Sandbox)
+    document.querySelectorAll(".mode-tab").forEach(btn => {
       btn.onclick = () => {
         Sound.playClick();
-        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-        document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+        document.querySelectorAll(".mode-tab").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
         btn.classList.add("active");
         const tabID = `tab-${btn.getAttribute("data-tab")}`;
         const target = document.getElementById(tabID);
@@ -928,8 +972,8 @@ https://github.com/ShantanuK86/reverse-proxy`;
       };
     });
 
-    // Mission buttons
-    document.querySelectorAll(".mission-step-btn").forEach(btn => {
+    // Mission step buttons
+    document.querySelectorAll(".step-btn").forEach(btn => {
       btn.onclick = () => {
         Sound.playClick();
         loadMission(parseInt(btn.getAttribute("data-mission")));
@@ -952,10 +996,10 @@ https://github.com/ShantanuK86/reverse-proxy`;
     // Arcade start
     document.getElementById("btn-start-arcade").onclick = startArcadeChallenge;
 
-    // Sandbox Controls
-    document.querySelectorAll(".segment-btn").forEach(btn => {
+    // Sandbox Controls: Balancing Strategy Pills
+    document.querySelectorAll(".pill-option").forEach(btn => {
       btn.onclick = async () => {
-        document.querySelectorAll(".segment-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".pill-option").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         const strat = btn.getAttribute("data-strategy");
         await setStrategy(strat);

@@ -228,7 +228,7 @@ func TestStaticHandler(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("root status = %d, want 200", rec.Code)
 	}
-	if !bytes.Contains(rec.Body.Bytes(), []byte("PROXY PANIC")) {
+	if !bytes.Contains(bytes.ToUpper(rec.Body.Bytes()), []byte("PROXY PANIC")) {
 		t.Error("root missing PROXY PANIC title")
 	}
 

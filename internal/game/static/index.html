@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,380;0,9..144,540;1,9..144,380;1,9..144,480&family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/gsap.min.js"></script>
   <script>
     (function(){
       var t = 'dark';
@@ -34,9 +35,19 @@
     <div class="bar-left">
       <a href="/" class="brand">
         <div class="brand-glyph">
-          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"/>
-            <path d="M8 16H24M18 10L24 16L18 22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="2" width="32" height="32" rx="10" fill="url(#brand-grad)" stroke="var(--border)" stroke-width="1.2"/>
+            <path d="M9 18H27" stroke="var(--bg)" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M21 12L27 18L21 24" stroke="var(--bg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M15 24L9 18L15 12" stroke="var(--bg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+            <circle cx="18" cy="18" r="4.2" fill="var(--bg)"/>
+            <circle cx="18" cy="18" r="2.2" fill="var(--peach)"/>
+            <defs>
+              <linearGradient id="brand-grad" x1="2" y1="2" x2="34" y2="34" gradientUnits="userSpaceOnUse">
+                <stop stop-color="var(--sage)"/>
+                <stop offset="1" stop-color="var(--peach)"/>
+              </linearGradient>
+            </defs>
           </svg>
         </div>
         <div class="wordmark">
@@ -109,12 +120,90 @@
           </div>
         </div>
 
-        <!-- Canvas Flow Field -->
-        <div class="canvas-stage">
-          <canvas id="network-canvas" width="760" height="340"></canvas>
-          <div class="annotation-badge left">Client</div>
-          <div class="annotation-badge center">Go Proxy Hub</div>
-          <div class="annotation-badge right">Upstream Pool</div>
+        <!-- Canvas Flow Field & Topology Overlay -->
+        <div class="canvas-stage" id="canvas-stage">
+          <canvas id="network-canvas"></canvas>
+          
+          <div class="topology-overlay" id="topology-overlay">
+            <!-- Client Ingress Node -->
+            <div class="topo-node client" id="topo-client">
+              <div class="node-icon-wrap client-wrap">
+                <svg class="topo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                  <line x1="8" y1="21" x2="16" y2="21"/>
+                  <line x1="12" y1="17" x2="12" y2="21"/>
+                  <polyline points="7 8 10 10 7 12"/>
+                  <line x1="12" y1="12" x2="16" y2="12"/>
+                </svg>
+              </div>
+              <div class="node-meta">
+                <span class="node-title">Client Ingress</span>
+                <span class="node-sub mono">127.0.0.1</span>
+              </div>
+            </div>
+
+            <!-- Central Go Reverse Proxy Node -->
+            <div class="topo-node proxy" id="topo-proxy">
+              <div class="node-icon-wrap proxy-wrap">
+                <div class="pulse-ring"></div>
+                <svg class="topo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3.5" fill="var(--peach)" stroke="none"/>
+                  <path d="M3 12h5.5M15.5 12H21"/>
+                  <path d="M12 3v5.5M12 15.5V21"/>
+                  <path d="M18.5 5.5L15 9M9 15l-3.5 3.5"/>
+                  <path d="M5.5 5.5L9 9M15 15l3.5 3.5"/>
+                </svg>
+              </div>
+              <div class="node-meta">
+                <span class="node-title">Go Reverse Proxy</span>
+                <span class="node-sub mono">:8080 • Core Hub</span>
+              </div>
+            </div>
+
+            <!-- Upstream Node Alpha -->
+            <div class="topo-node backend" id="topo-alpha">
+              <div class="node-icon-wrap backend-wrap alpha-wrap">
+                <svg class="topo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="var(--sage)" fill-opacity="0.15"/>
+                </svg>
+              </div>
+              <div class="node-meta">
+                <span class="node-title">Backend Alpha</span>
+                <span class="node-sub mono" id="alpha-status-sub">15ms • Fast</span>
+              </div>
+            </div>
+
+            <!-- Upstream Node Beta -->
+            <div class="topo-node backend" id="topo-beta">
+              <div class="node-icon-wrap backend-wrap beta-wrap">
+                <svg class="topo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="3" width="20" height="7" rx="2" ry="2"/>
+                  <rect x="2" y="14" width="20" height="7" rx="2" ry="2"/>
+                  <circle cx="6" cy="6.5" r="1" fill="currentColor"/>
+                  <circle cx="6" cy="17.5" r="1" fill="currentColor"/>
+                  <line x1="12" y1="6.5" x2="18" y2="6.5"/>
+                  <line x1="12" y1="17.5" x2="18" y2="17.5"/>
+                </svg>
+              </div>
+              <div class="node-meta">
+                <span class="node-title">Backend Beta</span>
+                <span class="node-sub mono" id="beta-status-sub">25ms • Standard</span>
+              </div>
+            </div>
+
+            <!-- Upstream Node Gamma -->
+            <div class="topo-node backend" id="topo-gamma">
+              <div class="node-icon-wrap backend-wrap gamma-wrap">
+                <svg class="topo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="var(--glow)" fill-opacity="0.15"/>
+                </svg>
+              </div>
+              <div class="node-meta">
+                <span class="node-title">Backend Gamma</span>
+                <span class="node-sub mono" id="gamma-status-sub">45ms • Heavy</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Controlled Backends Grid -->

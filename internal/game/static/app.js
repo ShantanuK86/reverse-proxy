@@ -1,6 +1,6 @@
 // Proxy Panic — Interactive Go Reverse Proxy Simulator
 // Twodo.design Inspired Editorial Craftsmanship
-// Topology Canvas, Web Audio Synth, 5 Guided Missions, 60s Surge Challenge, Request Forensics
+// High-DPI Topology Canvas, GSAP Bézier Comets, Web Audio Synth, 5 Guided Missions, 60s Surge Challenge
 
 (function () {
   "use strict";
@@ -18,7 +18,9 @@
     arcadeTimer: 60,
     arcadeInterval: null,
     arcadeStats: { handled: 0, errors: 0, totalDuration: 0 },
-    packets: [], // Animated particles on canvas
+    packets: [], // Animated comet packets
+    shockwaves: [], // Expanding radial shockwaves on arrival
+    conduitOffset: 0, // Continuous energy flow dash offset
   };
 
   // --- Sound Synthesizer (Web Audio API) ---
@@ -102,118 +104,269 @@
     }
   };
 
-  // --- Network Canvas Visualization (Warm Editorial Style) ---
+  // --- High-DPI Canvas & Bézier Physics Engine ---
   const canvas = document.getElementById("network-canvas");
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas ? canvas.getContext("2d") : null;
 
-  // Fixed visual node coordinates
-  const nodes = {
-    client: { x: 95, y: 155, label: "Client Ingress", icon: "💻", color: "#8f8576" },
-    proxy:  { x: 380, y: 155, label: "Go Reverse Proxy", icon: "🔀", color: "#e8be6c" },
-    alpha:  { x: 665, y: 65,  label: "Backend Alpha", icon: "⚡", color: "#a8c79a", id: "alpha" },
-    beta:   { x: 665, y: 155, label: "Backend Beta",  icon: "⚙️", color: "#e8a97a", id: "beta" },
-    gamma:  { x: 665, y: 245, label: "Backend Gamma", icon: "🛡️", color: "#c99ae8", id: "gamma" },
-  };
+  function resizeCanvas() {
+    const stage = document.getElementById("canvas-stage");
+    if (!stage || !canvas || !ctx) return;
+    const rect = stage.getBoundingClientRect();
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.resetTransform?.();
+    ctx.scale(dpr, dpr);
+  }
+  window.addEventListener("resize", resizeCanvas);
 
-  function spawnPacket(targetBackendID, isSuccess = true) {
-    const targetNode = nodes[targetBackendID] || nodes.alpha;
-    // Client -> Proxy -> Backend -> Client
-    state.packets.push({
-      startX: nodes.client.x, startY: nodes.client.y,
-      endX: nodes.proxy.x,   endY: nodes.proxy.y,
-      x: nodes.client.x,     y: nodes.client.y,
-      progress: 0, speed: 0.042,
-      phase: 1, // 1: Client->Proxy, 2: Proxy->Backend, 3: Backend->Client
-      targetNode: targetNode,
-      isSuccess: isSuccess,
-      color: isSuccess ? "#e8be6c" : "#e06050"
+  function getNodeCenter(nodeId) {
+    const stage = document.getElementById("canvas-stage");
+    const el = document.getElementById(nodeId);
+    if (!stage || !el) return { x: 0, y: 0 };
+    const stageRect = stage.getBoundingClientRect();
+    const iconWrap = el.querySelector(".node-icon-wrap") || el;
+    const elRect = iconWrap.getBoundingClientRect();
+    return {
+      x: elRect.left + elRect.width / 2 - stageRect.left,
+      y: elRect.top + elRect.height / 2 - stageRect.top,
+    };
+  }
+
+  function getCubicBezierSpline(p0, p3) {
+    const dx = p3.x - p0.x;
+    return {
+      p0,
+      p1: { x: p0.x + dx * 0.45, y: p0.y },
+      p2: { x: p0.x + dx * 0.55, y: p3.y },
+      p3,
+    };
+  }
+
+  function evalBezier(spline, t) {
+    const mt = 1 - t;
+    const mt2 = mt * mt;
+    const mt3 = mt2 * mt;
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return {
+      x: mt3 * spline.p0.x + 3 * mt2 * t * spline.p1.x + 3 * mt * t2 * spline.p2.x + t3 * spline.p3.x,
+      y: mt3 * spline.p0.y + 3 * mt2 * t * spline.p1.y + 3 * mt * t2 * spline.p2.y + t3 * spline.p3.y,
+    };
+  }
+
+  function triggerNodePop(elementId, color = "#e8be6c") {
+    const el = document.getElementById(elementId);
+    if (el) {
+      const wrap = el.querySelector(".node-icon-wrap");
+      if (wrap && window.gsap) {
+        window.gsap.fromTo(wrap, { scale: 1.24 }, { scale: 1, duration: 0.35, ease: "back.out(2.2)" });
+      }
+    }
+    const center = getNodeCenter(elementId);
+    state.shockwaves.push({
+      x: center.x,
+      y: center.y,
+      radius: 18,
+      maxRadius: 55,
+      alpha: 0.85,
+      color: color,
     });
   }
 
+  // --- Packet Spawner with GSAP / Smooth Easing ---
+  function spawnPacket(targetBackendID, isSuccess = true) {
+    let mockId = "alpha";
+    if (typeof targetBackendID === "string") {
+      const lower = targetBackendID.toLowerCase();
+      if (lower.includes("beta")) mockId = "beta";
+      else if (lower.includes("gamma")) mockId = "gamma";
+    }
+
+    const pkt = {
+      phase: 1, // 1: Client->Proxy, 2: Proxy->Backend, 3: Backend->Client
+      t: 0,
+      targetId: mockId,
+      isSuccess: isSuccess,
+      trail: [],
+      x: 0,
+      y: 0,
+    };
+    state.packets.push(pkt);
+
+    if (window.gsap) {
+      // Phase 1: Client -> Proxy (Smooth Power2 InOut)
+      window.gsap.to(pkt, {
+        t: 1,
+        duration: 0.52,
+        ease: "power2.inOut",
+        onComplete() {
+          pkt.phase = 2;
+          pkt.t = 0;
+          pkt.trail = [];
+          triggerNodePop("topo-proxy", isSuccess ? "#e8be6c" : "#e06050");
+
+          // Phase 2: Proxy -> Backend
+          window.gsap.to(pkt, {
+            t: 1,
+            duration: 0.48,
+            ease: "power2.out",
+            onComplete() {
+              pkt.phase = 3;
+              pkt.t = 0;
+              pkt.trail = [];
+              const backendNodeId = "topo-" + pkt.targetId;
+              triggerNodePop(backendNodeId, isSuccess ? "#a8c79a" : "#e06050");
+
+              // Phase 3: Backend -> Client
+              window.gsap.to(pkt, {
+                t: 1,
+                duration: 0.65,
+                ease: "power2.inOut",
+                onComplete() {
+                  const idx = state.packets.indexOf(pkt);
+                  if (idx !== -1) state.packets.splice(idx, 1);
+                  triggerNodePop("topo-client", "#8f8576");
+                }
+              });
+            }
+          });
+        }
+      });
+    } else {
+      // Linear fallback if GSAP is unavailable
+      pkt.speed = 0.04;
+    }
+  }
+
+  // --- Main Animation Loop ---
   function renderCanvas() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!ctx || !canvas) return;
+    const stage = document.getElementById("canvas-stage");
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+
     const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+    state.conduitOffset = (state.conduitOffset + 0.65) % 1000;
 
-    // 1. Draw connection beams
-    ctx.lineWidth = 1.5;
-    [nodes.alpha, nodes.beta, nodes.gamma].forEach(target => {
-      const isDead = isBackendDead(target.id);
-      ctx.strokeStyle = isDead
-        ? (isDark ? "rgba(224, 96, 80, 0.45)" : "rgba(193, 68, 54, 0.5)")
-        : (isDark ? "rgba(232, 190, 108, 0.22)" : "rgba(184, 132, 42, 0.28)");
-      ctx.setLineDash([4, 4]);
+    const clientCenter = getNodeCenter("topo-client");
+    const proxyCenter = getNodeCenter("topo-proxy");
+    const alphaCenter = getNodeCenter("topo-alpha");
+    const betaCenter = getNodeCenter("topo-beta");
+    const gammaCenter = getNodeCenter("topo-gamma");
+
+    const conduits = [
+      { from: proxyCenter, to: alphaCenter, id: "alpha" },
+      { from: proxyCenter, to: betaCenter,  id: "beta" },
+      { from: proxyCenter, to: gammaCenter, id: "gamma" },
+    ];
+
+    // 1. Draw Ingress Conduit: Client -> Proxy
+    const clientSpline = getCubicBezierSpline(clientCenter, proxyCenter);
+    drawConduit(clientSpline, false, isDark, state.conduitOffset);
+
+    // 2. Draw Egress Conduits: Proxy -> Upstream Backends
+    conduits.forEach(c => {
+      const isDead = isBackendDead(c.id);
+      const spline = getCubicBezierSpline(c.from, c.to);
+      drawConduit(spline, isDead, isDark, state.conduitOffset);
+    });
+
+    // 3. Draw Expanding Shockwaves
+    for (let i = state.shockwaves.length - 1; i >= 0; i--) {
+      const sw = state.shockwaves[i];
+      sw.radius += 1.8;
+      sw.alpha -= 0.035;
+      if (sw.alpha <= 0 || sw.radius >= sw.maxRadius) {
+        state.shockwaves.splice(i, 1);
+        continue;
+      }
+      ctx.save();
       ctx.beginPath();
-      ctx.moveTo(nodes.proxy.x, nodes.proxy.y);
-      ctx.lineTo(target.x, target.y);
+      ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = sw.color;
+      ctx.globalAlpha = Math.max(0, sw.alpha);
+      ctx.lineWidth = 2;
       ctx.stroke();
-    });
+      ctx.restore();
+    }
 
-    // Beam Client -> Proxy
-    ctx.strokeStyle = isDark ? "rgba(232, 190, 108, 0.35)" : "rgba(184, 132, 42, 0.35)";
-    ctx.beginPath();
-    ctx.moveTo(nodes.client.x, nodes.client.y);
-    ctx.lineTo(nodes.proxy.x, nodes.proxy.y);
-    ctx.stroke();
-    ctx.setLineDash([]); // Reset dash
-
-    // 2. Draw Nodes
-    // Client Node
-    drawNode(nodes.client, 28, isDark ? "rgba(143, 133, 118, 0.15)" : "rgba(143, 133, 118, 0.12)", nodes.client.color);
-    // Proxy Node (Center Hub)
-    drawNode(nodes.proxy, 38, isDark ? "rgba(232, 190, 108, 0.2)" : "rgba(184, 132, 42, 0.18)", nodes.proxy.color, true);
-    // Upstream Nodes
-    [nodes.alpha, nodes.beta, nodes.gamma].forEach(bNode => {
-      const isDead = isBackendDead(bNode.id);
-      const color = isDead ? (isDark ? "#e06050" : "#c14436") : bNode.color;
-      const bg = isDead
-        ? (isDark ? "rgba(224, 96, 80, 0.2)" : "rgba(193, 68, 54, 0.15)")
-        : (isDark ? "rgba(168, 199, 154, 0.18)" : "rgba(92, 110, 78, 0.12)");
-      drawNode(bNode, 30, bg, color);
-    });
-
-    // 3. Update & Draw Flying Packets
+    // 4. Draw Flowing Packets with Luminous Comet Trails
     for (let i = state.packets.length - 1; i >= 0; i--) {
-      const p = state.packets[i];
-      p.progress += p.speed;
+      const pkt = state.packets[i];
 
-      if (p.phase === 1) {
-        p.x = p.startX + (p.endX - p.startX) * p.progress;
-        p.y = p.startY + (p.endY - p.startY) * p.progress;
-        if (p.progress >= 1) {
-          p.phase = 2;
-          p.progress = 0;
-          p.startX = nodes.proxy.x;
-          p.startY = nodes.proxy.y;
-          p.endX = p.targetNode.x;
-          p.endY = p.targetNode.y;
-        }
-      } else if (p.phase === 2) {
-        p.x = p.startX + (p.endX - p.startX) * p.progress;
-        p.y = p.startY + (p.endY - p.startY) * p.progress;
-        if (p.progress >= 1) {
-          p.phase = 3;
-          p.progress = 0;
-          p.startX = p.targetNode.x;
-          p.startY = p.targetNode.y;
-          p.endX = nodes.client.x;
-          p.endY = nodes.client.y;
-        }
-      } else if (p.phase === 3) {
-        p.x = p.startX + (p.endX - p.startX) * p.progress;
-        p.y = p.startY + (p.endY - p.startY) * p.progress;
-        if (p.progress >= 1) {
-          state.packets.splice(i, 1);
-          continue;
+      // If running fallback without GSAP
+      if (!window.gsap) {
+        pkt.t += pkt.speed || 0.035;
+        if (pkt.t >= 1) {
+          pkt.t = 0;
+          pkt.trail = [];
+          if (pkt.phase === 1) {
+            pkt.phase = 2;
+            triggerNodePop("topo-proxy", pkt.isSuccess ? "#e8be6c" : "#e06050");
+          } else if (pkt.phase === 2) {
+            pkt.phase = 3;
+            triggerNodePop("topo-" + pkt.targetId, pkt.isSuccess ? "#a8c79a" : "#e06050");
+          } else if (pkt.phase === 3) {
+            state.packets.splice(i, 1);
+            triggerNodePop("topo-client", "#8f8576");
+            continue;
+          }
         }
       }
 
-      // Draw packet glowing sphere
+      // Calculate current coordinates along active Bézier spline
+      let spline;
+      const targetCenter = getNodeCenter("topo-" + pkt.targetId);
+      if (pkt.phase === 1) {
+        spline = getCubicBezierSpline(clientCenter, proxyCenter);
+      } else if (pkt.phase === 2) {
+        spline = getCubicBezierSpline(proxyCenter, targetCenter);
+      } else {
+        spline = getCubicBezierSpline(targetCenter, clientCenter);
+      }
+
+      const curPos = evalBezier(spline, Math.max(0, Math.min(1, pkt.t)));
+      pkt.x = curPos.x;
+      pkt.y = curPos.y;
+
+      // Add to comet trail history
+      pkt.trail.push({ x: pkt.x, y: pkt.y });
+      if (pkt.trail.length > 7) pkt.trail.shift();
+
+      const color = pkt.isSuccess ? (isDark ? "#e8be6c" : "#c97a4a") : "#e06050";
+
+      // Draw fading comet tail
+      for (let j = 0; j < pkt.trail.length - 1; j++) {
+        const ptA = pkt.trail[j];
+        const ptB = pkt.trail[j + 1];
+        const ratio = (j + 1) / pkt.trail.length;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(ptA.x, ptA.y);
+        ctx.lineTo(ptB.x, ptB.y);
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = ratio * 0.45;
+        ctx.lineWidth = 1.5 + ratio * 3;
+        ctx.lineCap = "round";
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Draw Glowing Head
       ctx.save();
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.shadowColor = p.color;
-      ctx.shadowBlur = 10;
+      ctx.arc(pkt.x, pkt.y, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 12;
+      ctx.fill();
+
+      // Bright inner core
+      ctx.beginPath();
+      ctx.arc(pkt.x, pkt.y, 2, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff";
       ctx.fill();
       ctx.restore();
     }
@@ -221,31 +374,33 @@
     requestAnimationFrame(renderCanvas);
   }
 
-  function drawNode(node, radius, bgFill, strokeColor, isPulse = false) {
-    const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+  function drawConduit(spline, isDead, isDark, offset) {
     ctx.save();
+
+    // 1. Base Cable Path
     ctx.beginPath();
-    ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = bgFill;
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 1.8;
-    if (isPulse) {
-      ctx.shadowColor = strokeColor;
-      ctx.shadowBlur = 14;
+    ctx.moveTo(spline.p0.x, spline.p0.y);
+    ctx.bezierCurveTo(spline.p1.x, spline.p1.y, spline.p2.x, spline.p2.y, spline.p3.x, spline.p3.y);
+
+    if (isDead) {
+      // Offline / Partitioned link: Alert Crimson broken line
+      ctx.strokeStyle = isDark ? "rgba(224, 96, 80, 0.45)" : "rgba(193, 68, 54, 0.55)";
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([4, 6]);
+      ctx.stroke();
+    } else {
+      // Healthy Base Cable
+      ctx.strokeStyle = isDark ? "rgba(232, 190, 108, 0.16)" : "rgba(184, 132, 42, 0.22)";
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+
+      // 2. Animated Traveling Energy Pulse (Fiber Optic Flow)
+      ctx.strokeStyle = isDark ? "rgba(232, 190, 108, 0.7)" : "rgba(184, 132, 42, 0.75)";
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([6, 14]);
+      ctx.lineDashOffset = -offset;
+      ctx.stroke();
     }
-    ctx.fill();
-    ctx.stroke();
-
-    // Icon
-    ctx.font = "16px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(node.icon, node.x, node.y);
-
-    // Label
-    ctx.font = "500 11px 'IBM Plex Mono', monospace";
-    ctx.fillStyle = isDark ? "#c2baa8" : "#5a5247";
-    ctx.fillText(node.label, node.x, node.y + radius + 15);
     ctx.restore();
   }
 
@@ -280,7 +435,6 @@
       });
       const trace = await res.json();
 
-      // Find matching mock id
       let targetId = "alpha";
       if (trace.selected_backend.toLowerCase().includes("beta")) targetId = "beta";
       if (trace.selected_backend.toLowerCase().includes("gamma")) targetId = "gamma";
@@ -306,12 +460,12 @@
       });
       const data = await res.json();
 
-      // Spawn rapid visual burst packets
+      // Spawn smooth staggered comets
       for (let i = 0; i < Math.min(count, 15); i++) {
         setTimeout(() => {
           const targets = ["alpha", "beta", "gamma"];
           spawnPacket(targets[i % 3], true);
-        }, i * 35);
+        }, i * 40);
       }
 
       await fetchStatus();
@@ -374,6 +528,24 @@
       ratioBadge.textContent = `${aliveCount}/${state.backends.length} Healthy`;
       ratioBadge.className = aliveCount === state.backends.length ? "tag mono healthy-tag" : "tag mono danger-tag";
     }
+
+    // Synchronize Topology SVG Overlay Nodes
+    ["alpha", "beta", "gamma"].forEach(id => {
+      const isOffline = isBackendDead(id);
+      const topoEl = document.getElementById("topo-" + id);
+      const subEl = document.getElementById(id + "-status-sub");
+      if (topoEl) {
+        topoEl.classList.toggle("is-offline", isOffline);
+      }
+      if (subEl) {
+        if (isOffline) {
+          subEl.textContent = "OFFLINE 503";
+        } else {
+          const latency = id === "alpha" ? "15ms • Fast" : (id === "beta" ? "25ms • Standard" : "45ms • Heavy");
+          subEl.textContent = latency;
+        }
+      }
+    });
 
     // Render Server Cards in Grid
     const serversGrid = document.getElementById("servers-grid");
@@ -929,7 +1101,10 @@ https://github.com/ShantanuK86/reverse-proxy`;
 
   // --- Event Bindings & Init ---
   function init() {
-    // Canvas start
+    // Initial size of high-DPI canvas
+    resizeCanvas();
+
+    // Start 60/120 FPS continuous animation loop
     renderCanvas();
 
     // Theme toggle
@@ -1024,6 +1199,9 @@ https://github.com/ShantanuK86/reverse-proxy`;
     document.getElementById("modal-close-btn").onclick = () => {
       document.getElementById("share-modal").classList.remove("open");
     };
+
+    // Re-calibrate canvas dimensions after DOM settle
+    setTimeout(resizeCanvas, 150);
   }
 
   window.addEventListener("DOMContentLoaded", init);

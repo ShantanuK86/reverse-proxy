@@ -80,11 +80,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Set descriptive display names on pool backends
-	allBackends := pool.All()
-	for i, mb := range mockMgr.All() {
-		if i < len(allBackends) {
-			allBackends[i].Name = mb.Name
+	// Set descriptive display names on pool backends by matching address
+	for _, b := range pool.All() {
+		if mb := mockMgr.GetByAddr(b.URL.Host); mb != nil {
+			b.Name = mb.Name
 		}
 	}
 

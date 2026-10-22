@@ -17,6 +17,7 @@ type RequestTrace struct {
 	Path             string              `json:"path"`
 	ClientIP         string              `json:"client_ip"`
 	SelectedBackend  string              `json:"selected_backend"`
+	SelectedMockID   string              `json:"selected_mock_id,omitempty"`
 	SelectedURL      string              `json:"selected_url"`
 	BalancerStrategy string              `json:"balancer_strategy"`
 	StatusCode       int                 `json:"status_code"`

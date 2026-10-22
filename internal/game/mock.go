@@ -28,6 +28,7 @@ type MockBackend struct {
 // MockManager manages the 3 internal demo backends.
 type MockManager struct {
 	backends map[string]*MockBackend
+	order    []string
 	mu       sync.RWMutex
 }
 
@@ -35,6 +36,7 @@ type MockManager struct {
 func NewMockManager() (*MockManager, error) {
 	mgr := &MockManager{
 		backends: make(map[string]*MockBackend),
+		order:    []string{"alpha", "beta", "gamma"},
 	}
 
 	configs := []struct {
@@ -145,26 +147,42 @@ func (m *MockManager) Get(id string) *MockBackend {
 	return m.backends[id]
 }
 
-// All returns all mock backends.
+// All returns all mock backends in deterministic order: alpha, beta, gamma.
 func (m *MockManager) All() []*MockBackend {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	res := make([]*MockBackend, 0, len(m.backends))
-	for _, b := range m.backends {
-		res = append(res, b)
+	res := make([]*MockBackend, 0, len(m.order))
+	for _, id := range m.order {
+		if b, ok := m.backends[id]; ok {
+			res = append(res, b)
+		}
 	}
 	return res
 }
 
-// URLs returns list of URLs for all mock backends.
+// URLs returns list of URLs for all mock backends in deterministic order.
 func (m *MockManager) URLs() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	res := make([]string, 0, len(m.backends))
-	for _, b := range m.backends {
-		res = append(res, b.URL)
+	res := make([]string, 0, len(m.order))
+	for _, id := range m.order {
+		if b, ok := m.backends[id]; ok {
+			res = append(res, b.URL)
+		}
 	}
 	return res
+}
+
+// GetByAddr finds a mock backend by its Host/Addr or URL.
+func (m *MockManager) GetByAddr(addrOrURL string) *MockBackend {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, b := range m.backends {
+		if b.Addr == addrOrURL || b.URL == addrOrURL {
+			return b
+		}
+	}
+	return nil
 }
 
 // SetHealthy toggles a backend's health status.

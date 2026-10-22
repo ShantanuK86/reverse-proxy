@@ -406,7 +406,36 @@
 
   function isBackendDead(id) {
     const b = state.backends.find(item => item.mock_id === id);
-    return b ? !b.is_healthy || !b.alive : false;
+    return b ? (!b.alive || b.is_healthy === false) : false;
+  }
+
+  function resolveMockId(trace) {
+    if (!trace) return "alpha";
+    if (typeof trace === "object") {
+      if (trace.selected_mock_id) return trace.selected_mock_id;
+      const str = (trace.selected_backend || trace.selected_url || "").toLowerCase();
+      if (str.includes("alpha")) return "alpha";
+      if (str.includes("beta")) return "beta";
+      if (str.includes("gamma")) return "gamma";
+
+      const match = state.backends.find(b =>
+        (b.host && str.includes(b.host.toLowerCase())) ||
+        (b.url && str.includes(b.url.toLowerCase())) ||
+        (b.name && str.includes(b.name.toLowerCase()))
+      );
+      if (match && match.mock_id) return match.mock_id;
+    } else if (typeof trace === "string") {
+      const str = trace.toLowerCase();
+      if (str.includes("alpha")) return "alpha";
+      if (str.includes("beta")) return "beta";
+      if (str.includes("gamma")) return "gamma";
+      const match = state.backends.find(b =>
+        (b.host && str.includes(b.host.toLowerCase())) ||
+        (b.url && str.includes(b.url.toLowerCase()))
+      );
+      if (match && match.mock_id) return match.mock_id;
+    }
+    return "alpha";
   }
 
   // --- API Communications ---
@@ -435,10 +464,7 @@
       });
       const trace = await res.json();
 
-      let targetId = "alpha";
-      if (trace.selected_backend.toLowerCase().includes("beta")) targetId = "beta";
-      if (trace.selected_backend.toLowerCase().includes("gamma")) targetId = "gamma";
-
+      const targetId = resolveMockId(trace);
       spawnPacket(targetId, trace.status_code === 200);
       addFeedItem(trace);
       await fetchStatus();
@@ -531,7 +557,8 @@
 
     // Synchronize Topology SVG Overlay Nodes
     ["alpha", "beta", "gamma"].forEach(id => {
-      const isOffline = isBackendDead(id);
+      const b = state.backends.find(item => item.mock_id === id);
+      const isOffline = b ? (!b.alive || b.is_healthy === false) : false;
       const topoEl = document.getElementById("topo-" + id);
       const subEl = document.getElementById(id + "-status-sub");
       if (topoEl) {
@@ -541,16 +568,22 @@
         if (isOffline) {
           subEl.textContent = "OFFLINE 503";
         } else {
-          const latency = id === "alpha" ? "15ms • Fast" : (id === "beta" ? "25ms • Standard" : "45ms • Heavy");
-          subEl.textContent = latency;
+          const latency = b ? b.latency_ms : (id === "alpha" ? 15 : (id === "beta" ? 25 : 45));
+          const tag = id === "alpha" ? "Fast" : (id === "beta" ? "Standard" : "Heavy");
+          subEl.textContent = `${latency}ms • ${tag}`;
         }
       }
     });
 
-    // Render Server Cards in Grid
+    // Render Server Cards in Grid (Always in order: Alpha, Beta, Gamma)
     const serversGrid = document.getElementById("servers-grid");
     if (serversGrid && state.backends.length > 0) {
-      serversGrid.innerHTML = state.backends.map(b => {
+      const order = { "alpha": 1, "beta": 2, "gamma": 3 };
+      const sortedBackends = [...state.backends].sort((a, b) => {
+        return (order[a.mock_id] || 99) - (order[b.mock_id] || 99);
+      });
+
+      serversGrid.innerHTML = sortedBackends.map(b => {
         const isOffline = !b.alive || b.is_healthy === false;
         const mockId = b.mock_id || "alpha";
         return `

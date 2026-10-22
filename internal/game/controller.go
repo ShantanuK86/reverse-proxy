@@ -70,18 +70,25 @@ func (c *Controller) handleStatus(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if c.mockMgr != nil {
-			for _, mb := range c.mockMgr.All() {
-				if mb.Addr == b.URL.Host || mb.URL == b.URL.String() {
-					item["mock_id"] = mb.ID
-					item["is_healthy"] = mb.isHealthy.Load()
-					item["latency_ms"] = mb.latencyMs.Load()
-					item["request_count"] = mb.requestCount.Load()
-					item["error_count"] = mb.errorCount.Load()
-				}
+			if mb := c.mockMgr.GetByAddr(b.URL.Host); mb != nil {
+				item["mock_id"] = mb.ID
+				item["name"] = mb.Name
+				item["is_healthy"] = mb.isHealthy.Load()
+				item["latency_ms"] = mb.latencyMs.Load()
+				item["request_count"] = mb.requestCount.Load()
+				item["error_count"] = mb.errorCount.Load()
 			}
 		}
 		backendList = append(backendList, item)
 	}
+
+	// Guarantee deterministic sort: Alpha, Beta, Gamma
+	orderMap := map[string]int{"alpha": 1, "beta": 2, "gamma": 3}
+	sort.Slice(backendList, func(i, j int) bool {
+		idI, _ := backendList[i]["mock_id"].(string)
+		idJ, _ := backendList[j]["mock_id"].(string)
+		return orderMap[idI] < orderMap[idJ]
+	})
 
 	balStrategy := "round-robin"
 	if b := c.proxy.GetBalancer(); b != nil {
@@ -253,9 +260,18 @@ func (c *Controller) handleSend(w http.ResponseWriter, r *http.Request) {
 	c.totalRequests.Add(1)
 
 	// Determine selected backend from response header
-	selectedBackend := rec.Header().Get("X-Proxy-Backend")
-	if selectedBackend == "" {
-		selectedBackend = "none (ejected / unavailable)"
+	selectedBackendAddr := rec.Header().Get("X-Proxy-Backend")
+	selectedBackendName := selectedBackendAddr
+	selectedMockID := ""
+	if c.mockMgr != nil {
+		if mb := c.mockMgr.GetByAddr(selectedBackendAddr); mb != nil {
+			selectedBackendName = mb.Name
+			selectedMockID = mb.ID
+		}
+	}
+	if selectedBackendAddr == "" {
+		selectedBackendAddr = "none (ejected / unavailable)"
+		selectedBackendName = "none (ejected / unavailable)"
 	}
 
 	balName := "round-robin"
@@ -267,7 +283,7 @@ func (c *Controller) handleSend(w http.ResponseWriter, r *http.Request) {
 		Step:     "balancer",
 		TimeMs:   0.6,
 		Title:    "Load Balancer Decision",
-		Desc:     fmt.Sprintf("Strategy '%s' routed traffic to upstream [%s].", balName, selectedBackend),
+		Desc:     fmt.Sprintf("Strategy '%s' routed traffic to upstream [%s].", balName, selectedBackendName),
 		Category: "balancer",
 	})
 
@@ -283,7 +299,7 @@ func (c *Controller) handleSend(w http.ResponseWriter, r *http.Request) {
 		Step:     "upstream_response",
 		TimeMs:   float64(duration.Microseconds())/1000.0 - 0.3,
 		Title:    "Upstream RoundTrip",
-		Desc:     fmt.Sprintf("Upstream returned HTTP %d in %.2fms.", rec.Code, float64(duration.Milliseconds())),
+		Desc:     fmt.Sprintf("Upstream [%s] returned HTTP %d in %.2fms.", selectedBackendName, rec.Code, float64(duration.Milliseconds())),
 		Category: "upstream",
 	})
 
@@ -301,11 +317,9 @@ func (c *Controller) handleSend(w http.ResponseWriter, r *http.Request) {
 	// Fetch headers received by backend if mock is available
 	headersReceived := make(map[string][]string)
 	if c.mockMgr != nil {
-		for _, mb := range c.mockMgr.All() {
-			if strings.Contains(selectedBackend, mb.Addr) || strings.Contains(selectedBackend, mb.ID) {
-				h, _ := mb.LastHeaders()
-				headersReceived = h
-			}
+		if mb := c.mockMgr.GetByAddr(selectedBackendAddr); mb != nil {
+			h, _ := mb.LastHeaders()
+			headersReceived = h
 		}
 	}
 
@@ -314,7 +328,9 @@ func (c *Controller) handleSend(w http.ResponseWriter, r *http.Request) {
 		Method:           req.Method,
 		Path:             req.Path,
 		ClientIP:         "127.0.0.1",
-		SelectedBackend:  selectedBackend,
+		SelectedBackend:  selectedBackendName,
+		SelectedMockID:   selectedMockID,
+		SelectedURL:      selectedBackendAddr,
 		BalancerStrategy: balName,
 		StatusCode:       rec.Code,
 		TotalDurationMs:  float64(duration.Microseconds()) / 1000.0,
@@ -324,7 +340,7 @@ func (c *Controller) handleSend(w http.ResponseWriter, r *http.Request) {
 		HeadersAdded: map[string]string{
 			"X-Forwarded-For":   "127.0.0.1",
 			"X-Forwarded-Proto": "http",
-			"X-Proxy-Backend":   selectedBackend,
+			"X-Proxy-Backend":   selectedBackendAddr,
 		},
 		HeadersStripped: []string{"Connection", "Keep-Alive"},
 		ResponseBody:    parsedBody,
@@ -391,13 +407,19 @@ func (c *Controller) handleBurst(w http.ResponseWriter, r *http.Request) {
 				errCount.Add(1)
 			}
 
-			backendName := rec.Header().Get("X-Proxy-Backend")
-			if backendName == "" {
-				backendName = "502 Bad Gateway"
+			backendAddr := rec.Header().Get("X-Proxy-Backend")
+			backendLabel := backendAddr
+			if c.mockMgr != nil {
+				if mb := c.mockMgr.GetByAddr(backendAddr); mb != nil {
+					backendLabel = mb.Name
+				}
+			}
+			if backendAddr == "" {
+				backendLabel = "502 Bad Gateway"
 			}
 
 			distMu.Lock()
-			distribution[backendName]++
+			distribution[backendLabel]++
 			distMu.Unlock()
 		}()
 	}

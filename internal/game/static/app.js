@@ -486,12 +486,19 @@
       });
       const data = await res.json();
 
-      // Spawn smooth staggered comets
-      for (let i = 0; i < Math.min(count, 15); i++) {
-        setTimeout(() => {
-          const targets = ["alpha", "beta", "gamma"];
-          spawnPacket(targets[i % 3], true);
-        }, i * 40);
+      // Spawn smooth staggered comets ONLY to the actual target servers that handled the traffic
+      const actualTargets = (data.targets && data.targets.length > 0)
+        ? data.targets
+        : state.backends.filter(b => b.alive && b.is_healthy !== false).map(b => b.mock_id);
+
+      if (actualTargets.length > 0) {
+        const animCount = Math.min(count, 15);
+        for (let i = 0; i < animCount; i++) {
+          setTimeout(() => {
+            const target = actualTargets[i % actualTargets.length];
+            spawnPacket(target, true);
+          }, i * 40);
+        }
       }
 
       await fetchStatus();

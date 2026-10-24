@@ -383,6 +383,8 @@ func (c *Controller) handleBurst(w http.ResponseWriter, r *http.Request) {
 	latencies := make([]float64, 0, req.Count)
 	var latMu sync.Mutex
 	var errCount atomic.Int64
+	var targetsMu sync.Mutex
+	targets := make([]string, 0, req.Count)
 
 	var wg sync.WaitGroup
 	for i := 0; i < req.Count; i++ {
@@ -409,9 +411,11 @@ func (c *Controller) handleBurst(w http.ResponseWriter, r *http.Request) {
 
 			backendAddr := rec.Header().Get("X-Proxy-Backend")
 			backendLabel := backendAddr
+			targetMockID := ""
 			if c.mockMgr != nil {
 				if mb := c.mockMgr.GetByAddr(backendAddr); mb != nil {
 					backendLabel = mb.Name
+					targetMockID = mb.ID
 				}
 			}
 			if backendAddr == "" {
@@ -421,6 +425,12 @@ func (c *Controller) handleBurst(w http.ResponseWriter, r *http.Request) {
 			distMu.Lock()
 			distribution[backendLabel]++
 			distMu.Unlock()
+
+			if targetMockID != "" {
+				targetsMu.Lock()
+				targets = append(targets, targetMockID)
+				targetsMu.Unlock()
+			}
 		}()
 	}
 	wg.Wait()
@@ -445,6 +455,7 @@ func (c *Controller) handleBurst(w http.ResponseWriter, r *http.Request) {
 		"total_sent":       req.Count,
 		"strategy":         balStrategy,
 		"distribution":     distribution,
+		"targets":          targets,
 		"total_duration":   fmt.Sprintf("%.2fms", float64(totalTime.Milliseconds())),
 		"p50_latency_ms":   p50,
 		"p95_latency_ms":   p95,
